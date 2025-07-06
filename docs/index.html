@@ -225,6 +225,7 @@
             padding: 10px 15px;
             border-radius: 10px;
             border-left: 4px solid #4338ca;
+			margin-bottom: 15px;
         }
 
         .contract-detail strong {
@@ -494,19 +495,21 @@
         let contracts = JSON.parse(localStorage.getItem('contracts')) || [];
         let editingIndex = -1;
 
-        function showTab(tabName) {
+        function showTab(tabName, event) {
             // Hide all content divs
             document.querySelectorAll('.content').forEach(div => div.classList.add('hidden'));
-            
             // Remove active class from all tabs
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            
             // Show selected content
             document.getElementById(tabName).classList.remove('hidden');
-            
             // Add active class to clicked tab
-            event.target.classList.add('active');
-            
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // fallback: set first matching tab as active
+                const tabBtn = Array.from(document.querySelectorAll('.tab')).find(btn => btn.textContent.includes(tabName.charAt(0).toUpperCase()));
+                if (tabBtn) tabBtn.classList.add('active');
+            }
             if (tabName === 'overview') {
                 displayContracts();
             } else if (tabName === 'search') {
@@ -684,7 +687,6 @@
 
         document.getElementById('contractForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
             const contract = {
                 name: document.getElementById('contractName').value,
                 type: document.getElementById('contractType').value,
@@ -696,7 +698,6 @@
                 contractNumber: document.getElementById('contractNumber').value,
                 notes: document.getElementById('notes').value
             };
-            
             if (editingIndex >= 0) {
                 contracts[editingIndex] = contract;
                 editingIndex = -1;
@@ -704,5 +705,20 @@
             } else {
                 contracts.push(contract);
                 showAlert('Vertrag wurde hinzugefügt!', 'success');
-		}
-		})
+            }
+            localStorage.setItem('contracts', JSON.stringify(contracts));
+            displayContracts();
+            // Nach dem Speichern zurück zur Übersicht
+            showTab('overview');
+            // Formular zurücksetzen
+            document.getElementById('contractForm').reset();
+        });
+
+        document.querySelectorAll('.tab').forEach(tabBtn => {
+            tabBtn.onclick = function(event) {
+                showTab(tabBtn.getAttribute('onclick').match(/'(.*?)'/)[1], event);
+            };
+        });
+    </script>
+</body>
+</html>
