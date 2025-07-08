@@ -496,12 +496,14 @@
         let editingIndex = -1;
 
         function showTab(tabName, event) {
-            // Hide all content divs
+            // Hide all content divs => this will hide all contracts
             document.querySelectorAll('.content').forEach(div => div.classList.add('hidden'));
-            // Remove active class from all tabs
+            // Remove active class from all tabs so no tab is highlighted
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             // Show selected content
             document.getElementById(tabName).classList.remove('hidden');
+			document.getElementById(tabName).scrollIntoView({ behavior: 'smooth' });
+			document.getElementById(tabName).focus();
             // Add active class to clicked tab
             if (event && event.target) {
                 event.target.classList.add('active');
