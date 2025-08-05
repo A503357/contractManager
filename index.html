@@ -514,7 +514,7 @@
     <button class="floating-add" onclick="showTab('add'); focusAddDiv();" title="Neuen Vertrag hinzufügen">+</button>
 
     <script>
-        let contracts = JSON.parse(localStorage.getItem('contracts')) || [];
+		let contracts = [];
         let editingIndex = -1;
 		
 		function showNewContractTab(tabName, event) {
@@ -563,9 +563,12 @@
             return diffDays;
         }
 
-        function displayContracts() {
+        async function displayContracts() {
             const contractList = document.getElementById('contractList');
             contractList.innerHTML = '';
+			
+			// Verträge aus Firestore laden
+			await loadContracts();
             
             updateStats();
             
@@ -663,14 +666,18 @@
             showTab('add');
         }
 
-        function deleteContract(index) {
-            if (confirm('Sind Sie sicher, dass Sie diesen Vertrag löschen möchten?')) {
-                contracts.splice(index, 1);
-                localStorage.setItem('contracts', JSON.stringify(contracts));
-                displayContracts();
-                showAlert('Vertrag wurde gelöscht!', 'success');
-            }
-        }
+		async function deleteContract(index) {
+		    if (confirm('Sind Sie sicher, dass Sie diesen Vertrag löschen möchten?')) {
+		        try {
+		            const contractId = contracts[index].id;
+		            await deleteContractFromDB(contractId);
+		            await displayContracts(); // Neu laden
+		            showAlert('Vertrag wurde gelöscht!', 'success');
+		        } catch (error) {
+		            showAlert('Fehler beim Löschen!', 'danger');
+		        }
+		    }
+		}
 
         function displaySearchResults() {
             const searchInput = document.getElementById('searchInput');
@@ -716,7 +723,7 @@
             });
         }
 
-        document.getElementById('contractForm').addEventListener('submit', function(e) {
+        document.getElementById('contractForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const contract = {
                 name: document.getElementById('contractName').value,
@@ -729,20 +736,23 @@
                 contractNumber: document.getElementById('contractNumber').value,
                 notes: document.getElementById('notes').value
             };
-            if (editingIndex >= 0) {
-                contracts[editingIndex] = contract;
-                editingIndex = -1;
-                showAlert('Vertrag wurde aktualisiert!', 'success');
-            } else {
-                contracts.push(contract);
-                showAlert('Vertrag wurde hinzugefügt!', 'success');
+			
+			try {
+				if (editingIndex >= 0) {
+					const contractId = contracts[editingIndex].id;
+					await updateContract(contractId, contract);
+					editingIndex = -1;
+	                showAlert('Vertrag wurde aktualisiert!', 'success');
+				} else {
+                    await saveContract(contract);
+                    showAlert('Neuer Vertrag wurde gespeichert!', 'success');
+                }
+				await displayContracts();
+				showTab('overview');
+				document.getElementById('contractForm').reset();
+			} catch (error) {
+                showAlert('Fehler beim Speichern!', 'danger');
             }
-            localStorage.setItem('contracts', JSON.stringify(contracts));
-            displayContracts();
-            // Nach dem Speichern zurück zur Übersicht
-            showTab('overview');
-            // Formular zurücksetzen
-            document.getElementById('contractForm').reset();
         });
 
         function focusAddDiv() {
@@ -806,6 +816,79 @@
                 pdfFileList.appendChild(div);
             });
         }
+		// Firestore Hilfsfunktionen
+		async function saveContract(contract) {
+		    try {
+		        await db.collection('contracts').add(contract);
+		        console.log('Vertrag gespeichert!');
+		    } catch (error) {
+		        console.error('Fehler beim Speichern:', error);
+		        throw error;
+		    }
+		}
+
+		async function loadContracts() {
+		    try {
+		        const snapshot = await db.collection('contracts').get();
+		        contracts = [];
+		        snapshot.forEach(doc => {
+		            contracts.push({ id: doc.id, ...doc.data() });
+		        });
+		        console.log(`${contracts.length} Verträge geladen`);
+		    } catch (error) {
+		        console.error('Fehler beim Laden:', error);
+		    }
+		}
+
+		async function updateContract(id, contract) {
+		    try {
+		        await db.collection('contracts').doc(id).update(contract);
+		        console.log('Vertrag aktualisiert!');
+		    } catch (error) {
+		        console.error('Fehler beim Aktualisieren:', error);
+		        throw error;
+		    }
+		}
+
+		async function deleteContractFromDB(id) {
+		    try {
+		        await db.collection('contracts').doc(id).delete();
+		        console.log('Vertrag gelöscht!');
+		    } catch (error) {
+		        console.error('Fehler beim Löschen:', error);
+		        throw error;
+		    }
+		}
+		// Verträge beim Laden der Seite laden
+		window.addEventListener('load', async function() {
+		    await displayContracts();
+		});
     </script>
+	
+	!-- Firebase SDK -->
+	<script type="module">
+	  // Import the functions you need from the SDKs you need
+	  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+	  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js";
+	  // TODO: Add SDKs for Firebase products that you want to use
+	  // https://firebase.google.com/docs/web/setup#available-libraries
+
+	  // Your web app's Firebase configuration
+	  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+	  const firebaseConfig = {
+	    apiKey: "AIzaSyCIOy2T-RSaVhSreHEJQyG-T4HTlzBmf0E",
+	    authDomain: "vertragsmanager-app.firebaseapp.com",
+	    databaseURL: "https://vertragsmanager-app-default-rtdb.europe-west1.firebasedatabase.app",
+	    projectId: "vertragsmanager-app",
+	    storageBucket: "vertragsmanager-app.firebasestorage.app",
+	    messagingSenderId: "814003619899",
+	    appId: "1:814003619899:web:ce1d1a2cb0a0db3c6b341e",
+	    measurementId: "G-LNCZQQR01M"
+	  };
+
+	  // Initialize Firebase
+	  const app = initializeApp(firebaseConfig);
+	  const analytics = getAnalytics(app);
+	</script>
 </body>
 </html>
