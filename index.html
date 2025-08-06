@@ -401,10 +401,16 @@
 		}
 
 		.document-item:hover {
+			display: flex;
+			justify-content: space-between;
 		    background-color: rgba(67, 56, 202, 0.05);
 		    border-radius: 5px;
 		    padding-left: 5px;
 		    transition: all 0.2s ease;
+		}
+		
+		.docusment-info {
+            display: inline-block;
 		}
     </style>
 </head>
@@ -696,10 +702,12 @@
 					    <div class="document-list">
 					        ${contract.documents.map(doc => `
 					            <div class="document-item">
-					                <span onclick="downloadDocument('${doc.url}', '${doc.name}')" style="cursor: pointer; color: #4338ca; text-decoration: underline;">
-					                    📄 ${doc.name} (${Math.round(doc.size/1024)}KB)
-					                </span>
-					                <small style="color: #6b7280;"> - ${formatDate(doc.uploadDate)}</small>
+									<div class="document-info>"
+						                <span onclick="downloadDocument('${doc.url}', '${doc.name}')" style="cursor: pointer; color: #4338ca; text-decoration: underline;">
+						                    📄 ${doc.name} (${Math.round(doc.size/1024)}KB)
+						                </span>
+						                <small style="color: #6b7280;"> - ${formatDate(doc.uploadDate)}</small>
+									</div>
 									<button onclick="deleteDocument(${index}, ${contract.documents.indexOf(doc)})" 
 									        style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 2px 6px; font-size: 0.8em; cursor: pointer;"
 									        title="Dokument löschen">
