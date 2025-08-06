@@ -1057,6 +1057,41 @@
 		    setupUploadListeners();
 		}
 
+		// PDF Upload Funktion
+		async function uploadPDF(file, contractId) {
+		    try {
+		        const fileName = `contracts/${contractId}/${Date.now()}_${file.name}`;
+		        const fileRef = storageRef.child(fileName);
+		        
+		        showAlert('Upload läuft...', 'info');
+		        
+		        // Upload starten
+		        const snapshot = await fileRef.put(file);
+		        const downloadURL = await snapshot.ref.getDownloadURL();
+		        
+		        // Counter aktualisieren
+		        todayUploads++;
+		        totalStorageUsed += Math.round(file.size / 1024 / 1024); // MB
+		        localStorage.setItem('todayUploads', todayUploads.toString());
+		        localStorage.setItem('totalStorageUsed', totalStorageUsed.toString());
+		        
+		        updateUsageStats();
+		        showAlert('PDF erfolgreich hochgeladen!', 'success');
+		        
+		        return {
+		            name: file.name,
+		            url: downloadURL,
+		            uploadDate: new Date().toISOString(),
+		            size: file.size
+		        };
+		        
+		    } catch (error) {
+		        console.error('Upload Fehler:', error);
+		        showAlert('Upload fehlgeschlagen!', 'danger');
+		        throw error;
+		    }
+		}
+		
 		// Upload-Dialog schließen
 		function closeUploadDialog() {
 		    document.getElementById('uploadDialog').classList.add('hidden');
