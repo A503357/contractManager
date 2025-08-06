@@ -747,16 +747,21 @@
 
 		function updateUsageStats() {
 			resetDailyCounterIfNeeded();
-			    document.getElementById('uploadCount').textContent = todayUploads;
-			    document.getElementById('storageUsed').textContent = Math.round(totalStorageUsed/1024) + 'MB'; // ← KB zu MB
-		    
-		    // Warnung bei 80% der Limits
-		    if (todayUploads > 16000) { // 80% von 20.000
-		        showAlert('Upload-Limit fast erreicht!', 'warning');
-		    }
-		    if (totalStorageUsed > 4000) { // 80% von 5GB = 4GB = 4000MB
-		        showAlert('Storage-Limit fast erreicht!', 'warning');
-		    }
+
+			// WICHTIG: Storage-Werte aus localStorage neu laden!
+			totalStorageUsed = parseInt(localStorage.getItem('totalStorageUsed') || '0');
+			todayUploads = parseInt(localStorage.getItem('todayUploads') || '0');
+
+			document.getElementById('uploadCount').textContent = todayUploads;
+			document.getElementById('storageUsed').textContent = Math.round(totalStorageUsed/1024) + 'KB';
+
+			// Warnung bei 80% der Limits
+			if (todayUploads > 16000) {
+			    showAlert('Upload-Limit fast erreicht!', 'warning');
+			}
+			if (totalStorageUsed > 4096000) { // 4GB in KB
+			    showAlert('Storage-Limit fast erreicht!', 'warning');
+			}
 		}
 
         function showAlert(message, type = 'success') {
