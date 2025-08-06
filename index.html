@@ -277,7 +277,7 @@
         }
 
         .hidden {
-            display: none;
+            display: none !important;
         }
 
         .stats {
@@ -1060,7 +1060,7 @@
 		// Upload-Dialog schließen
 		function closeUploadDialog() {
 		    document.getElementById('uploadDialog').classList.add('hidden');
-		    document.getElementById('uploadInput').value = '';
+		    document.getElementById('dialogUploadInput').value = '';  // ← RICHTIGE ID
 		    document.getElementById('uploadProgress').classList.add('hidden');
 		    currentUploadContractIndex = -1;
 		}
@@ -1076,16 +1076,19 @@
 		    // Drag & Drop Handlers
 		    dropZone.ondragover = (e) => {
 		        e.preventDefault();
+				e.stopPropagation(); 
 		        dropZone.style.background = '#e0e7ff';
 		    };
 		    
 		    dropZone.ondragleave = (e) => {
 		        e.preventDefault();
+				e.stopPropagation(); 
 		        dropZone.style.background = '#f8fafc';
 		    };
 		    
 		    dropZone.ondrop = (e) => {
 		        e.preventDefault();
+				e.stopPropagation(); 
 		        dropZone.style.background = '#f8fafc';
 		        handleFileUpload(e.dataTransfer.files[0]);
 		    };
