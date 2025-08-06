@@ -745,23 +745,55 @@
 		    }
 		}
 
-		function updateUsageStats() {
-			resetDailyCounterIfNeeded();
-
-			// WICHTIG: Storage-Werte aus localStorage neu laden!
-			totalStorageUsed = parseInt(localStorage.getItem('totalStorageUsed') || '0');
-			todayUploads = parseInt(localStorage.getItem('todayUploads') || '0');
-
-			document.getElementById('uploadCount').textContent = todayUploads;
-			document.getElementById('storageUsed').textContent = totalStorageUsed + 'KB';
-
-			// Warnung bei 80% der Limits
-			if (todayUploads > 16000) {
-			    showAlert('Upload-Limit fast erreicht!', 'warning');
-			}
-			if (totalStorageUsed > 4096000) { // 4GB in KB
-			    showAlert('Storage-Limit fast erreicht!', 'warning');
-			}
+		async function updateUsageStats() {
+		    resetDailyCounterIfNeeded();
+		    
+		    // Lokale Upload-Zähler
+		    todayUploads = parseInt(localStorage.getItem('todayUploads') || '0');
+		    document.getElementById('uploadCount').textContent = todayUploads;
+		    
+		    try {
+		        // GLOBALE Storage-Nutzung von Firebase abrufen
+		        const storageRef = firebase.storage().ref();
+		        let totalBytes = 0;
+		        
+		        // Alle Dateien im contracts/ Ordner durchgehen
+		        const contractsRef = storageRef.child('contracts');
+		        const listResult = await contractsRef.listAll();
+		        
+		        // Rekursiv durch alle Unterordner
+		        const getFolderSize = async (folderRef) => {
+		            const result = await folderRef.listAll();
+		            let folderSize = 0;
+		            
+		            // Dateien in diesem Ordner
+		            for (const fileRef of result.items) {
+		                const metadata = await fileRef.getMetadata();
+		                folderSize += metadata.size;
+		            }
+		            
+		            // Unterordner durchsuchen
+		            for (const subFolder of result.prefixes) {
+		                folderSize += await getFolderSize(subFolder);
+		            }
+		            
+		            return folderSize;
+		        };
+		        
+		        totalBytes = await getFolderSize(contractsRef);
+		        const totalKB = Math.round(totalBytes / 1024);
+		        
+		        document.getElementById('storageUsed').textContent = totalKB + 'KB';
+		        
+		        // Warnung bei 80% von 5GB = 4GB = 4,194,304KB
+		        if (totalKB > 3355443) { // 80% von 5GB
+		            showAlert('Storage-Limit fast erreicht!', 'warning');
+		        }
+		        
+		    } catch (error) {
+		        console.error('Fehler beim Laden der Storage-Nutzung:', error);
+		        document.getElementById('storageUsed').textContent = '? KB';
+		    }
 		}
 
         function showAlert(message, type = 'success') {
@@ -1066,10 +1098,7 @@
 		        
 				// Counter aktualisieren  
 				todayUploads++;
-				const fileSizeKB = Math.round(file.size / 1024); // KB statt MB
-				totalStorageUsed += fileSizeKB;
 				localStorage.setItem('todayUploads', todayUploads.toString());
-				localStorage.setItem('totalStorageUsed', totalStorageUsed.toString());
 		        
 		        updateUsageStats();
 		        showAlert('PDF erfolgreich hochgeladen!', 'success');
