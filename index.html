@@ -544,10 +544,10 @@
 	        <h3 style="margin-bottom: 20px; color: #4338ca;">Dokument zu Vertrag hinzufügen</h3>
 	        <div id="uploadContractName" style="margin-bottom: 20px; font-weight: 600;"></div>
 	        
-	        <div id="uploadDropZone" style="border: 2px dashed #4338ca; border-radius: 12px; padding: 40px; text-align: center; color: #4338ca; background: #f8fafc; margin-bottom: 20px; cursor: pointer;">
-	            <span id="uploadDropText">PDF hierher ziehen oder klicken</span>
-	            <input type="file" id="uploadInput" accept="application/pdf" style="display:none" />
-	        </div>
+	        <div id="dialogUploadDropZone" style="border: 2px dashed #4338ca; border-radius: 12px; padding: 40px; text-align: center; color: #4338ca; background: #f8fafc; margin-bottom: 20px; cursor: pointer;">
+			    <span id="dialogUploadDropText">PDF hierher ziehen oder klicken</span>
+			    <input type="file" id="dialogUploadInput" accept="application/pdf" style="display:none" />
+			</div>
 	        
 	        <div id="uploadProgress" class="hidden" style="margin: 20px 0;">
 	            <div style="background: #e5e7eb; height: 8px; border-radius: 4px;">
@@ -1067,8 +1067,8 @@
 
 		// Upload Event Listeners einrichten
 		function setupUploadListeners() {
-		    const dropZone = document.getElementById('uploadDropZone');
-		    const fileInput = document.getElementById('uploadInput');
+			const dropZone = document.getElementById('dialogUploadDropZone');  // ← Geändert
+			const fileInput = document.getElementById('dialogUploadInput');  
 		    
 		    // Click Handler
 		    dropZone.onclick = () => fileInput.click();
