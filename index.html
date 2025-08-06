@@ -391,6 +391,22 @@
                 width: 100%;
             }
         }
+		
+		.document-list {
+		    margin-top: 10px;
+		}
+
+		.document-item {
+		    padding: 5px 0;
+		    border-bottom: 1px solid #e5e7eb;
+		}
+
+		.document-item:hover {
+		    background-color: rgba(67, 56, 202, 0.05);
+		    border-radius: 5px;
+		    padding-left: 5px;
+		    transition: all 0.2s ease;
+		}
     </style>
 </head>
 <body>
@@ -413,6 +429,15 @@
                 <div class="stat-number" id="totalCost">0€</div>
                 <div class="stat-label">Gesamt/Monat</div>
             </div>
+			<!-- NEU: Usage Stats -->
+		   <div class="stat-card">
+		       <div class="stat-number" id="uploadCount">0</div>
+		       <div class="stat-label">Uploads heute</div>
+		   </div>
+		   <div class="stat-card">
+		       <div class="stat-number" id="storageUsed">0MB</div>
+		       <div class="stat-label">Storage verwendet</div>
+		   </div>
         </div>
 
         <div class="tabs">
@@ -513,10 +538,35 @@
 
     <button class="floating-add" onclick="showTab('add'); focusAddDiv();" title="Neuen Vertrag hinzufügen">+</button>
 
+	<!-- Upload Dialog -->
+	<div id="uploadDialog" class="hidden" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center;">
+	    <div style="background: white; border-radius: 20px; padding: 30px; max-width: 500px; width: 90%;">
+	        <h3 style="margin-bottom: 20px; color: #4338ca;">Dokument zu Vertrag hinzufügen</h3>
+	        <div id="uploadContractName" style="margin-bottom: 20px; font-weight: 600;"></div>
+	        
+	        <div id="uploadDropZone" style="border: 2px dashed #4338ca; border-radius: 12px; padding: 40px; text-align: center; color: #4338ca; background: #f8fafc; margin-bottom: 20px; cursor: pointer;">
+	            <span id="uploadDropText">PDF hierher ziehen oder klicken</span>
+	            <input type="file" id="uploadInput" accept="application/pdf" style="display:none" />
+	        </div>
+	        
+	        <div id="uploadProgress" class="hidden" style="margin: 20px 0;">
+	            <div style="background: #e5e7eb; height: 8px; border-radius: 4px;">
+	                <div id="uploadProgressBar" style="background: #4338ca; height: 8px; border-radius: 4px; width: 0%; transition: width 0.3s;"></div>
+	            </div>
+	        </div>
+	        
+	        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+	            <button onclick="closeUploadDialog()" class="btn" style="background: #6b7280;">Abbrechen</button>
+	        </div>
+	    </div>
+	</div>
+	
+	
 	<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
 	<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
 	<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
-
+	<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-storage-compat.js"></script>
+	
 	<script>
 	const firebaseConfig = {
 	  apiKey: "AIzaSyCIOy2T-RSaVhSreHEJQyG-T4HTlzBmf0E",
@@ -533,11 +583,19 @@
 	firebase.initializeApp(firebaseConfig);
 	const db = firebase.firestore();
 	const auth = firebase.auth();
+	const storage = firebase.storage();
+	const storageRef = storage.ref();
+	
 	</script>
 	
     <script>
 		let contracts = [];
         let editingIndex = -1;
+		// Usage Counter Variables
+		let todayUploads = parseInt(localStorage.getItem('todayUploads') || '0');
+		let totalStorageUsed = parseInt(localStorage.getItem('totalStorageUsed') || '0');
+		let lastUploadDate = localStorage.getItem('lastUploadDate') || '';
+		let currentUploadContractIndex = -1;
 		
 		function showNewContractTab(tabName, event) {
             console.log("show: " + tabName);
@@ -632,31 +690,49 @@
                             <strong>Kündigungsfrist:</strong><br>${formatDate(contract.cancellationDate)}
                         </div>
                     </div>
-                    ${contract.notes ? `<div class="contract-detail" style="grid-column: 1 / -1;"><strong>Notizen:</strong><br>${contract.notes}</div>` : ''}
+					${contract.notes ? `<div class="contract-detail" style="grid-column: 1 / -1;"><strong>Notizen:</strong><br>${contract.notes}</div>` : ''}
+					${contract.documents && contract.documents.length > 0 ? `
+					<div class="contract-detail" style="grid-column: 1 / -1;">
+					    <strong>Dokumente:</strong><br>
+					    <div class="document-list">
+					        ${contract.documents.map(doc => `
+					            <div class="document-item">
+					                <span onclick="downloadDocument('${doc.url}', '${doc.name}')" style="cursor: pointer; color: #4338ca; text-decoration: underline;">
+					                    📄 ${doc.name} (${Math.round(doc.size/1024)}KB)
+					                </span>
+					                <small style="color: #6b7280;"> - ${formatDate(doc.uploadDate)}</small>
+					            </div>
+					        `).join('')}
+					    </div>
+					</div>` : ''}
                     ${daysUntilExpiry !== null && daysUntilExpiry <= 30 ? `<div class="alert alert-warning">⚠️ Vertrag läuft in ${daysUntilExpiry} Tagen aus!</div>` : ''}
                     ${daysUntilCancellation !== null && daysUntilCancellation <= 30 ? `<div class="alert alert-danger">🚨 Kündigungsfrist in ${daysUntilCancellation} Tagen!</div>` : ''}
-                    <div class="contract-actions">
-                        <button class="btn btn-small" onclick="editContract(${index})">✏️ Bearbeiten</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteContract(${index})">🗑️ Löschen</button>
-                    </div>
+					<div class="contract-actions">
+					    <button class="btn btn-small" onclick="editContract(${index})">✏️ Bearbeiten</button>
+					    <button class="btn btn-small" onclick="showUploadDialog(${index})" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">📎 Dokument</button>
+					    <button class="btn btn-danger btn-small" onclick="deleteContract(${index})">🗑️ Löschen</button>
+					</div>
                 `;
                 
                 contractList.appendChild(contractDiv);
             });
         }
 
-        function updateStats() {
-            const totalContracts = contracts.length;
-            const expiringContracts = contracts.filter(c => {
-                const days = getDaysUntilExpiry(c.endDate);
-                return days !== null && days <= 30;
-            }).length;
-            const totalCost = contracts.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0);
-            
-            document.getElementById('totalContracts').textContent = totalContracts;
-            document.getElementById('expiringContracts').textContent = expiringContracts;
-            document.getElementById('totalCost').textContent = totalCost.toFixed(2) + '€';
-        }
+		function updateStats() {
+		    const totalContracts = contracts.length;
+		    const expiringContracts = contracts.filter(c => {
+		        const days = getDaysUntilExpiry(c.endDate);
+		        return days !== null && days <= 30;
+		    }).length;
+		    const totalCost = contracts.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0);
+		    
+		    document.getElementById('totalContracts').textContent = totalContracts;
+		    document.getElementById('expiringContracts').textContent = expiringContracts;
+		    document.getElementById('totalCost').textContent = totalCost.toFixed(2) + '€';
+		    
+		    // Usage Stats auch aktualisieren
+		    updateUsageStats(); // ← NEU hinzufügen
+		}
 
         function showAlert(message, type = 'success') {
             const alertContainer = document.getElementById('alertContainer');
@@ -756,7 +832,8 @@
                 endDate: document.getElementById('endDate').value,
                 cancellationDate: document.getElementById('cancellationDate').value,
                 contractNumber: document.getElementById('contractNumber').value,
-                notes: document.getElementById('notes').value
+                notes: document.getElementById('notes').value,
+				documents: [], // Placeholder for document uploads
             };
 			
 			try {
@@ -881,10 +958,176 @@
 		        throw error;
 		    }
 		}
+		
+		// Document Download Funktion
+		async function downloadDocument(url, filename) {
+		    try {
+		        showAlert('Download wird vorbereitet...', 'info');
+		        
+		        // Download starten
+		        const response = await fetch(url);
+		        const blob = await response.blob();
+		        
+		        // Download-Link erstellen
+		        const downloadUrl = window.URL.createObjectURL(blob);
+		        const link = document.createElement('a');
+		        link.href = downloadUrl;
+		        link.download = filename;
+		        
+		        // Download auslösen
+		        document.body.appendChild(link);
+		        link.click();
+		        document.body.removeChild(link);
+		        
+		        // Cleanup
+		        window.URL.revokeObjectURL(downloadUrl);
+		        
+		        // Usage Counter aktualisieren
+		        updateDownloadStats(blob.size);
+		        
+		        showAlert(`${filename} heruntergeladen!`, 'success');
+		        
+		    } catch (error) {
+		        console.error('Download Fehler:', error);
+		        showAlert('Download fehlgeschlagen!', 'danger');
+		    }
+		}
+
+		// Download Stats aktualisieren
+		function updateDownloadStats(fileSize) {
+		    const today = new Date().toDateString();
+		    let todayDownloads = parseInt(localStorage.getItem('todayDownloads') || '0');
+		    let todayDownloadMB = parseInt(localStorage.getItem('todayDownloadMB') || '0');
+		    let lastDownloadDate = localStorage.getItem('lastDownloadDate') || '';
+		    
+		    // Reset bei neuem Tag
+		    if (lastDownloadDate !== today) {
+		        todayDownloads = 0;
+		        todayDownloadMB = 0;
+		        localStorage.setItem('lastDownloadDate', today);
+		    }
+		    
+		    // Counter erhöhen
+		    todayDownloads++;
+		    todayDownloadMB += Math.round(fileSize / 1024 / 1024);
+		    
+		    localStorage.setItem('todayDownloads', todayDownloads.toString());
+		    localStorage.setItem('todayDownloadMB', todayDownloadMB.toString());
+		    
+		    // Warnung bei Limit-Erreichen (1GB = 1024MB pro Tag)
+		    if (todayDownloadMB > 800) { // 80% von 1GB
+		        showAlert('Download-Limit fast erreicht!', 'warning');
+		    }
+		}
+		
+		// Upload-Dialog öffnen
+		function showUploadDialog(contractIndex) {
+		    currentUploadContractIndex = contractIndex;
+		    const contract = contracts[contractIndex];
+		    
+		    document.getElementById('uploadContractName').textContent = `Vertrag: ${contract.name}`;
+		    document.getElementById('uploadDialog').classList.remove('hidden');
+		    
+		    // Event Listeners für Drag & Drop
+		    setupUploadListeners();
+		}
+
+		// Upload-Dialog schließen
+		function closeUploadDialog() {
+		    document.getElementById('uploadDialog').classList.add('hidden');
+		    document.getElementById('uploadInput').value = '';
+		    document.getElementById('uploadProgress').classList.add('hidden');
+		    currentUploadContractIndex = -1;
+		}
+
+		// Upload Event Listeners einrichten
+		function setupUploadListeners() {
+		    const dropZone = document.getElementById('uploadDropZone');
+		    const fileInput = document.getElementById('uploadInput');
+		    
+		    // Click Handler
+		    dropZone.onclick = () => fileInput.click();
+		    
+		    // Drag & Drop Handlers
+		    dropZone.ondragover = (e) => {
+		        e.preventDefault();
+		        dropZone.style.background = '#e0e7ff';
+		    };
+		    
+		    dropZone.ondragleave = (e) => {
+		        e.preventDefault();
+		        dropZone.style.background = '#f8fafc';
+		    };
+		    
+		    dropZone.ondrop = (e) => {
+		        e.preventDefault();
+		        dropZone.style.background = '#f8fafc';
+		        handleFileUpload(e.dataTransfer.files[0]);
+		    };
+		    
+		    // File Input Handler
+		    fileInput.onchange = (e) => {
+		        handleFileUpload(e.target.files[0]);
+		    };
+		}
+
+		// File Upload verarbeiten
+		async function handleFileUpload(file) {
+		    if (!file || file.type !== 'application/pdf') {
+		        showAlert('Bitte nur PDF-Dateien hochladen!', 'danger');
+		        return;
+		    }
+		    
+		    if (currentUploadContractIndex === -1) {
+		        showAlert('Fehler: Kein Vertrag ausgewählt!', 'danger');
+		        return;
+		    }
+		    
+		    try {
+		        // Progress anzeigen
+		        document.getElementById('uploadProgress').classList.remove('hidden');
+		        updateUploadProgress(0);
+		        
+		        // Upload starten
+		        const contract = contracts[currentUploadContractIndex];
+		        const contractId = contract.id;
+		        
+		        updateUploadProgress(30);
+		        const documentData = await uploadPDF(file, contractId);
+		        updateUploadProgress(70);
+		        
+		        // Dokument zu Vertrag hinzufügen
+		        if (!contract.documents) contract.documents = [];
+		        contract.documents.push(documentData);
+		        
+		        // Vertrag in Firestore aktualisieren
+		        await updateContract(contractId, contract);
+		        updateUploadProgress(100);
+		        
+		        // UI aktualisieren
+		        await displayContracts();
+		        closeUploadDialog();
+		        
+		        showAlert(`${file.name} erfolgreich hinzugefügt!`, 'success');
+		        
+		    } catch (error) {
+		        console.error('Upload Error:', error);
+		        showAlert('Upload fehlgeschlagen!', 'danger');
+		    }
+		}
+
+		// Upload Progress aktualisieren
+		function updateUploadProgress(percent) {
+		    document.getElementById('uploadProgressBar').style.width = percent + '%';
+		}
+		
 		// Verträge beim Laden der Seite laden
 		window.addEventListener('load', async function() {
+		    updateUsageStats(); // ← NEU hinzufügen
 		    await displayContracts();
 		});
+		
+		
     </script>
 	
 </body>
