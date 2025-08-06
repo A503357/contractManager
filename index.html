@@ -733,6 +733,31 @@
 		    // Usage Stats auch aktualisieren
 		    updateUsageStats(); // ← NEU hinzufügen
 		}
+		
+		// Usage Counter Funktionen
+		function resetDailyCounterIfNeeded() {
+		    const today = new Date().toDateString();
+		    if (lastUploadDate !== today) {
+		        todayUploads = 0;
+		        lastUploadDate = today;
+		        localStorage.setItem('todayUploads', '0');
+		        localStorage.setItem('lastUploadDate', today);
+		    }
+		}
+
+		function updateUsageStats() {
+		    resetDailyCounterIfNeeded();
+		    document.getElementById('uploadCount').textContent = todayUploads;
+		    document.getElementById('storageUsed').textContent = totalStorageUsed + 'MB';
+		    
+		    // Warnung bei 80% der Limits
+		    if (todayUploads > 16000) { // 80% von 20.000
+		        showAlert('Upload-Limit fast erreicht!', 'warning');
+		    }
+		    if (totalStorageUsed > 4000) { // 80% von 5GB = 4GB = 4000MB
+		        showAlert('Storage-Limit fast erreicht!', 'warning');
+		    }
+		}
 
         function showAlert(message, type = 'success') {
             const alertContainer = document.getElementById('alertContainer');
