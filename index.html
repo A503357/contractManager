@@ -746,9 +746,9 @@
 		}
 
 		function updateUsageStats() {
-		    resetDailyCounterIfNeeded();
-		    document.getElementById('uploadCount').textContent = todayUploads;
-		    document.getElementById('storageUsed').textContent = totalStorageUsed + 'MB';
+			resetDailyCounterIfNeeded();
+			    document.getElementById('uploadCount').textContent = todayUploads;
+			    document.getElementById('storageUsed').textContent = Math.round(totalStorageUsed/1024) + 'MB'; // ← KB zu MB
 		    
 		    // Warnung bei 80% der Limits
 		    if (todayUploads > 16000) { // 80% von 20.000
@@ -988,29 +988,19 @@
 		async function downloadDocument(url, filename) {
 		    try {
 		        showAlert('Download wird vorbereitet...', 'info');
-		        
-		        // Download starten
-		        const response = await fetch(url);
-		        const blob = await response.blob();
-		        
-		        // Download-Link erstellen
-		        const downloadUrl = window.URL.createObjectURL(blob);
-		        const link = document.createElement('a');
-		        link.href = downloadUrl;
-		        link.download = filename;
-		        
-		        // Download auslösen
-		        document.body.appendChild(link);
-		        link.click();
-		        document.body.removeChild(link);
-		        
-		        // Cleanup
-		        window.URL.revokeObjectURL(downloadUrl);
-		        
-		        // Usage Counter aktualisieren
-		        updateDownloadStats(blob.size);
-		        
-		        showAlert(`${filename} heruntergeladen!`, 'success');
+
+				// Direkter Download ohne fetch() - umgeht CORS
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = filename;
+				link.target = '_blank'; // Fallback falls download nicht funktioniert
+
+				// Download auslösen
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+
+				showAlert(`${filename} heruntergeladen!`, 'success');
 		        
 		    } catch (error) {
 		        console.error('Download Fehler:', error);
@@ -1069,11 +1059,12 @@
 		        const snapshot = await fileRef.put(file);
 		        const downloadURL = await snapshot.ref.getDownloadURL();
 		        
-		        // Counter aktualisieren
-		        todayUploads++;
-		        totalStorageUsed += Math.round(file.size / 1024 / 1024); // MB
-		        localStorage.setItem('todayUploads', todayUploads.toString());
-		        localStorage.setItem('totalStorageUsed', totalStorageUsed.toString());
+				// Counter aktualisieren  
+				todayUploads++;
+				const fileSizeKB = Math.round(file.size / 1024); // KB statt MB
+				totalStorageUsed += fileSizeKB;
+				localStorage.setItem('todayUploads', todayUploads.toString());
+				localStorage.setItem('totalStorageUsed', totalStorageUsed.toString());
 		        
 		        updateUsageStats();
 		        showAlert('PDF erfolgreich hochgeladen!', 'success');
