@@ -753,7 +753,7 @@
 			todayUploads = parseInt(localStorage.getItem('todayUploads') || '0');
 
 			document.getElementById('uploadCount').textContent = todayUploads;
-			document.getElementById('storageUsed').textContent = Math.round(totalStorageUsed/1024) + 'KB';
+			document.getElementById('storageUsed').textContent = totalStorageUsed + 'KB';
 
 			// Warnung bei 80% der Limits
 			if (todayUploads > 16000) {
